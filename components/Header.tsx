@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Status } from '../types';
 import { PlayIcon, PauseIcon, StopIcon, ExportIcon, ClipboardIcon, ChevronRightIcon, SettingsIcon } from './icons';
@@ -13,6 +12,7 @@ interface HeaderProps {
   onToggleTrace: () => void;
   isTraceVisible: boolean;
   isActionable: boolean;
+  retryInfo: { attempt: number; maxRetries: number } | null;
 }
 
 const getStatusColor = (status: Status) => {
@@ -22,6 +22,7 @@ const getStatusColor = (status: Status) => {
     case Status.Error: return 'text-red-400';
     case Status.Finished: return 'text-blue-400';
     case Status.ProcessingFile: return 'text-purple-400';
+    case Status.WaitingToRetry: return 'text-orange-400';
     default: return 'text-gray-400';
   }
 };
@@ -36,10 +37,18 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTrace,
   isTraceVisible,
   isActionable,
+  retryInfo
 }) => {
   const isRunning = status === Status.Running;
   const isPaused = status === Status.Paused;
   const isStopped = status === Status.Idle || status === Status.Stopped || status === Status.Finished || status === Status.Error;
+
+  const renderStatus = () => {
+    if (status === Status.WaitingToRetry && retryInfo) {
+      return `Waiting to Retry (${retryInfo.attempt}/${retryInfo.maxRetries})`;
+    }
+    return status;
+  };
 
   return (
     <header className="flex items-center justify-between p-3 border-b border-gray-700 bg-gray-800 shadow-md">
@@ -47,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
         <h1 className="text-xl font-bold text-white mr-6">DistillBoard — Autopilot</h1>
         <div className="flex items-center space-x-2">
             <div className={`w-3 h-3 rounded-full ${getStatusColor(status)}`}></div>
-            <span className={`font-mono text-sm ${getStatusColor(status)}`}>{status}</span>
+            <span className={`font-mono text-sm ${getStatusColor(status)}`}>{renderStatus()}</span>
         </div>
       </div>
       <div className="flex items-center space-x-2">

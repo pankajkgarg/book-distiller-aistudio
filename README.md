@@ -1,4 +1,3 @@
-
 # Book Distiller
 
 Book Distiller is an AI-powered web application designed to distill the essence of books. Users can upload a PDF, customize a powerful prompt, and activate an "Autopilot" mode that uses the Gemini API to generate a flowing, in-depth exploration of the book's core themes. The application provides a live-updating document view, a detailed trace log of the AI's operations, and options to export the final text.
@@ -13,13 +12,13 @@ Book Distiller is an AI-powered web application designed to distill the essence 
 -   **Live Response View**: Watch the distillation unfold in real-time, with each response from the AI appearing as a distinct block.
 -   **Trace Log**: A transparent, behind-the-scenes look at the prompts sent to and responses received from the AI.
 -   **Export & Copy**: Export the final combined document as a Markdown or text file, or copy it directly to your clipboard.
--   **Secure API Key Storage**: Your Gemini API key is stored securely in your browser's local storage and is never transmitted to any other server.
+-   **Secure API Key Usage**: The application is designed to use a pre-configured environment variable for the Gemini API key, ensuring it's not exposed in the client-side code.
 
 ## Getting Started
 
-1.  **Get a Gemini API Key**: To use the application, you need a free API key from Google AI Studio. You can get one here: [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
-2.  **Launch the App**: Open the `index.html` file in your web browser.
-3.  **Enter Your API Key**: On first launch, you will be prompted to enter your Gemini API key.
+1.  **Get a Gemini API Key**: To use the application, you need a free API key from Google AI Studio. You can get one here: [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey). The key must be available as an environment variable (`process.env.API_KEY`) in your hosting environment.
+2.  **Install Dependencies**: In a terminal, run `npm install` to download the required packages.
+3.  **Launch the App**: Open the `index.html` file in your browser through a compatible development environment that can resolve Node.js modules.
 4.  **Upload a Book**: Click the "Upload Book (PDF)" button to select your source file.
 5.  **Customize Settings (Optional)**: Review and edit the distillation prompt, or expand the "Advanced Settings" to change the model and temperature.
 6.  **Start Distillation**: Click the "Start" button to begin the process.
@@ -28,5 +27,6 @@ Book Distiller is an AI-powered web application designed to distill the essence 
 
 -   **Frontend**: React, TypeScript
 -   **Styling**: Tailwind CSS
--   **AI**: Google Gemini REST API
+-   **Icons**: React Icons
+-   **AI**: Google Gemini SDK (`@google/genai`)
 -   **File Processing**: Google Gemini File API

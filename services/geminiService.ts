@@ -1,5 +1,7 @@
+import { GoogleGenAI, Chat, File as GeminiFile, Part } from "@google/genai";
 
-import { GoogleGenAI, Chat, File as GeminiFile, Part, FileDataPart } from "@google/genai";
+const MAX_RETRIES = 5;
+const RETRY_DELAY_MS = 60000;
 
 export class GeminiService {
   private ai: GoogleGenAI;
@@ -24,7 +26,6 @@ export class GeminiService {
     onStateChange('PROCESSING');
     let getFile = await this.ai.files.get({ name: uploadedFile.name });
     while (getFile.state === 'PROCESSING') {
-      // Wait for 3 seconds before polling again
       await new Promise(resolve => setTimeout(resolve, 3000));
       getFile = await this.ai.files.get({ name: uploadedFile.name });
     }
@@ -42,9 +43,41 @@ export class GeminiService {
     prompt: string,
     model: string,
     temperature: number,
+    options: {
+        file?: GeminiFile;
+        onRetry: (details: { attempt: number; maxRetries: number; error: Error }) => void;
+    }
+  ): AsyncGenerator<string> {
+    const { file, onRetry } = options;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const stream = this.sendMessageAndCheckResponse(prompt, model, temperature, file);
+            for await (const chunk of stream) {
+                yield chunk;
+            }
+            return; 
+        } catch (error: any) {
+            if (attempt < MAX_RETRIES) {
+                onRetry({ attempt, maxRetries: MAX_RETRIES, error });
+                // With the new SDK, chat history is private. We will retry on the same chat
+                // object, assuming a failed call doesn't corrupt its internal state.
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                continue;
+            } else {
+                const finalError = new Error(`Failed after ${attempt > 1 ? `${attempt} attempts` : 'the first attempt'}. Last error: ${error.message}`);
+                throw finalError;
+            }
+        }
+    }
+  }
+
+  private async *sendMessageAndCheckResponse(
+    prompt: string,
+    model: string,
+    temperature: number,
     file?: GeminiFile
   ): AsyncGenerator<string> {
-    
     if (!this.chat) {
       this.chat = this.ai.chats.create({
         model: model,
@@ -52,7 +85,7 @@ export class GeminiService {
       });
     }
 
-    const parts: (Part | FileDataPart)[] = [{ text: prompt }];
+    const parts: (string | Part)[] = [prompt];
     if (file && file.uri && file.mimeType) {
       parts.push({
         fileData: {
@@ -63,12 +96,24 @@ export class GeminiService {
     }
     
     const stream = await this.chat.sendMessageStream({ message: parts });
+    
+    let fullResponseText = "";
+    let hasYielded = false;
 
     for await (const chunk of stream) {
         const text = chunk.text;
         if (text) {
           yield text;
+          fullResponseText += text;
+          hasYielded = true;
         }
+    }
+
+    if (!hasYielded || fullResponseText.trim() === "") {
+        throw new Error("Invalid response: Response was empty.");
+    }
+    if (fullResponseText.includes("<ctrl94>")) {
+        throw new Error("Invalid response: Detected thought process leakage.");
     }
   }
 }

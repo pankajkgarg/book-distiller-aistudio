@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useState } from 'react';
 
@@ -29,6 +28,7 @@ export default function App(): React.ReactNode {
     temperature,
     setAndStoreTemperature,
     error,
+    retryInfo,
   } = useBookDistiller();
 
   const fullDocumentContent = distillationLog.join('\n\n');
@@ -62,6 +62,7 @@ export default function App(): React.ReactNode {
         onToggleTrace={() => setIsTraceVisible(!isTraceVisible)}
         isTraceVisible={isTraceVisible}
         isActionable={uploadedFile !== null}
+        retryInfo={retryInfo}
       />
       <main className="flex flex-1 overflow-hidden">
         <div className="w-1/3 border-r border-gray-700 flex flex-col p-4 overflow-y-auto">
@@ -82,7 +83,7 @@ export default function App(): React.ReactNode {
             />
         </div>
         <div className="w-2/3 flex-1 flex relative">
-          <LiveDocument responses={distillationLog} status={status} error={error} />
+          <LiveDocument responses={distillationLog} status={status} error={error} retryInfo={retryInfo} />
           <TraceDrawer logs={traceLogs} isVisible={isTraceVisible} onClose={() => setIsTraceVisible(false)} />
         </div>
       </main>

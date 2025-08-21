@@ -46,4 +46,10 @@ export const PromptHistoryModal: React.FC<PromptHistoryModalProps> = ({ history,
               </div>
             ))
           ) : (
-            <p className="text-center text-gray-400 py-8">No prompt history yet. Your previous prompts will appear
+            <p className="text-center text-gray-400 py-8">No prompt history yet. Your previous prompts will appear here.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

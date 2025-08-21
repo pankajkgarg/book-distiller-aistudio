@@ -1,9 +1,9 @@
-
 export enum Status {
   Idle = 'Idle',
   Uploading = 'Uploading',
   ProcessingFile = 'Processing File',
   Running = 'Running',
+  WaitingToRetry = 'Waiting to Retry',
   Paused = 'Paused',
   Stopped = 'Stopped',
   Finished = 'Finished',

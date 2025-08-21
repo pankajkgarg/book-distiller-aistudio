@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Status, TraceLog } from '../types';
 import { DEFAULT_PROMPT, END_OF_BOOK_MARKER, NEXT_PROMPT } from '../constants';
@@ -24,12 +23,15 @@ export const useBookDistiller = () => {
   );
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retryInfo, setRetryInfo] = useState<{ attempt: number; maxRetries: number; countdown: number; error: string } | null>(null);
+
 
   const geminiServiceRef = useRef<GeminiService | null>(null);
   const statusRef = useRef<Status>(status);
   statusRef.current = status;
   const currentPromptRef = useRef<string>(distillationPrompt);
   currentPromptRef.current = distillationPrompt;
+  const countdownIntervalRef = useRef<number | null>(null);
 
   const setAndStoreDistillationPrompt = (prompt: string) => {
     localStorage.setItem('distillation_prompt', prompt);
@@ -55,12 +57,43 @@ export const useBookDistiller = () => {
     setTraceLogs(prev => [...prev, newLog]);
   }, []);
 
+  const clearCountdown = useCallback(() => {
+    if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+    }
+  }, []);
+
   const resetState = useCallback(() => {
     setDistillationLog([]);
     setTraceLogs([]);
     setError(null);
     geminiServiceRef.current = null;
-  }, []);
+    clearCountdown();
+    setRetryInfo(null);
+  }, [clearCountdown]);
+  
+  const handleRetry = useCallback(({ attempt, maxRetries, error }: { attempt: number; maxRetries: number; error: Error }) => {
+    setStatus(Status.WaitingToRetry);
+    const errorMessage = `Attempt ${attempt}/${maxRetries} failed: ${error.message}. Retrying in 60s.`;
+    addTraceLog('system', errorMessage);
+    
+    setDistillationLog(prev => prev.slice(0, -1));
+
+    setRetryInfo({ attempt, maxRetries, countdown: 60, error: error.message });
+    
+    clearCountdown();
+    countdownIntervalRef.current = window.setInterval(() => {
+        setRetryInfo(prev => {
+            if (!prev) return null;
+            if (prev.countdown <= 1) {
+                clearCountdown();
+                return null;
+            }
+            return { ...prev, countdown: prev.countdown - 1 };
+        });
+    }, 1000);
+  }, [addTraceLog, clearCountdown]);
 
 
   const startDistillation = async () => {
@@ -104,12 +137,21 @@ export const useBookDistiller = () => {
         setStatus(Status.Running);
         addTraceLog('user', `[DISTILLATION PROMPT]\n${distillationPrompt}`);
         
-        // Initial Turn
-        const stream = service.generateResponseStream(distillationPrompt, model, temperature, processedFile);
+        setDistillationLog(['']);
+        const stream = service.generateResponseStream(distillationPrompt, model, temperature, {
+            file: processedFile,
+            onRetry: handleRetry,
+        });
         
         let currentResponse = '';
-        setDistillationLog(['']);
         for await (const chunk of stream) {
+            if (statusRef.current === Status.WaitingToRetry) {
+                setStatus(Status.Running);
+                setRetryInfo(null);
+                clearCountdown();
+                currentResponse = ''; 
+                setDistillationLog(prev => [...prev, '']);
+            }
             if (statusRef.current !== Status.Running) break; 
             currentResponse += chunk;
             setDistillationLog(prev => {
@@ -129,23 +171,38 @@ export const useBookDistiller = () => {
         }
 
     } catch (e: any) {
-        const errorMessage = `An error occurred: ${e.message}`;
+        const errorMessage = `Distillation failed: ${e.message}`;
         setError(errorMessage);
-        setStatus(Status.Error);
-        addTraceLog('system', errorMessage);
+        setStatus(Status.Paused);
+        addTraceLog('system', `${errorMessage}. Process paused.`);
+        clearCountdown();
+        setRetryInfo(null);
     }
   };
 
   const continueDistillation = async (service: GeminiService) => {
-    while (statusRef.current === Status.Running) {
+    while (true) {
+        if (statusRef.current !== Status.Running) {
+            break;
+        }
         try {
             addTraceLog('user', NEXT_PROMPT);
-            const stream = service.generateResponseStream(NEXT_PROMPT, model, temperature);
-            
-            let currentResponse = '';
             setDistillationLog(prev => [...prev, '']);
 
+            const stream = service.generateResponseStream(NEXT_PROMPT, model, temperature, {
+                onRetry: handleRetry
+            });
+            
+            let currentResponse = '';
+
             for await (const chunk of stream) {
+                if (statusRef.current === Status.WaitingToRetry) {
+                    setStatus(Status.Running);
+                    setRetryInfo(null);
+                    clearCountdown();
+                    currentResponse = '';
+                    setDistillationLog(prev => [...prev, '']);
+                }
                 if (statusRef.current !== Status.Running) break;
                 currentResponse += chunk;
                 setDistillationLog(prev => {
@@ -164,11 +221,13 @@ export const useBookDistiller = () => {
             }
 
         } catch (e: any) {
-             const errorMessage = `Error during conversation turn: ${e.message}`;
-             setError(errorMessage);
-             setStatus(Status.Error);
-             addTraceLog('system', errorMessage);
-             break;
+            const errorMessage = `Distillation failed during conversation turn: ${e.message}`;
+            setError(errorMessage);
+            setStatus(Status.Paused);
+            addTraceLog('system', `${errorMessage}. Process paused.`);
+            clearCountdown();
+            setRetryInfo(null);
+            break;
         }
     }
   };
@@ -217,6 +276,7 @@ export const useBookDistiller = () => {
     setAndStoreModel,
     temperature,
     setAndStoreTemperature,
-    error
+    error,
+    retryInfo,
   };
 };
