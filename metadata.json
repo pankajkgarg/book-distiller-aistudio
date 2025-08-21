@@ -1,0 +1,5 @@
+{
+  "name": "Book Distiller",
+  "description": "An AI-powered web application to distill the essence of books. Upload a PDF, customize the prompt, and let the Autopilot generate a flowing, in-depth exploration of the book's core themes. Monitor the process with a live trace and export the final document.",
+  "requestFramePermissions": []
+}
