@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Status, TraceLog } from '../types';
 import { DEFAULT_PROMPT, END_OF_BOOK_MARKER, NEXT_PROMPT } from '../constants';
@@ -145,21 +146,34 @@ export const useBookDistiller = () => {
         });
         
         let currentResponse = '';
-        for await (const chunk of stream) {
-            if (statusRef.current === Status.WaitingToRetry) {
-                setStatus(Status.Running);
-                setRetryInfo(null);
-                clearCountdown();
-                currentResponse = ''; 
-                setDistillationLog(prev => [...prev, '']);
+        for await (const result of stream) {
+            if (result.type === 'chunk') {
+                if (statusRef.current === Status.WaitingToRetry) {
+                    setStatus(Status.Running);
+                    setRetryInfo(null);
+                    clearCountdown();
+                    currentResponse = ''; 
+                    setDistillationLog(prev => [...prev, '']);
+                }
+                if (statusRef.current !== Status.Running) break; 
+                currentResponse += result.data;
+                setDistillationLog(prev => {
+                    const newLog = [...prev];
+                    newLog[newLog.length - 1] = currentResponse;
+                    return newLog;
+                });
+            } else if (result.type === 'metadata') {
+                const { candidates, ...metadata } = result.data as any;
+                const cleanedMetadata = {
+                    ...metadata,
+                    candidates: candidates?.map((c: any) => {
+                        const { content, ...rest } = c;
+                        return rest;
+                    })
+                };
+                const metadataString = JSON.stringify(cleanedMetadata, null, 2);
+                addTraceLog('system', `[METADATA]\n${metadataString}`);
             }
-            if (statusRef.current !== Status.Running) break; 
-            currentResponse += chunk;
-            setDistillationLog(prev => {
-                const newLog = [...prev];
-                newLog[newLog.length - 1] = currentResponse;
-                return newLog;
-            });
         }
         
         if (statusRef.current === Status.Running) {
@@ -196,21 +210,34 @@ export const useBookDistiller = () => {
             
             let currentResponse = '';
 
-            for await (const chunk of stream) {
-                if (statusRef.current === Status.WaitingToRetry) {
-                    setStatus(Status.Running);
-                    setRetryInfo(null);
-                    clearCountdown();
-                    currentResponse = '';
-                    setDistillationLog(prev => [...prev, '']);
+            for await (const result of stream) {
+                if (result.type === 'chunk') {
+                    if (statusRef.current === Status.WaitingToRetry) {
+                        setStatus(Status.Running);
+                        setRetryInfo(null);
+                        clearCountdown();
+                        currentResponse = '';
+                        setDistillationLog(prev => [...prev, '']);
+                    }
+                    if (statusRef.current !== Status.Running) break;
+                    currentResponse += result.data;
+                    setDistillationLog(prev => {
+                        const newLog = [...prev];
+                        newLog[newLog.length - 1] = currentResponse;
+                        return newLog;
+                    });
+                } else if (result.type === 'metadata') {
+                    const { candidates, ...metadata } = result.data as any;
+                    const cleanedMetadata = {
+                        ...metadata,
+                        candidates: candidates?.map((c: any) => {
+                            const { content, ...rest } = c;
+                            return rest;
+                        })
+                    };
+                    const metadataString = JSON.stringify(cleanedMetadata, null, 2);
+                    addTraceLog('system', `[METADATA]\n${metadataString}`);
                 }
-                if (statusRef.current !== Status.Running) break;
-                currentResponse += chunk;
-                setDistillationLog(prev => {
-                    const newLog = [...prev];
-                    newLog[newLog.length - 1] = currentResponse;
-                    return newLog;
-                });
             }
             
             if (statusRef.current !== Status.Running) break;

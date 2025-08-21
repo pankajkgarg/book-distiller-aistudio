@@ -22,5 +22,12 @@
 
 * Can you add commands in package.json so that app can be compiled and run and a dev running command. Is vite needed here?
 
+* Show metadata information like prompt consumed, cache tokens, error code, error message etc (all this metadata returnied in gemini response) in trace
+
+
+
+
+
+
 
 

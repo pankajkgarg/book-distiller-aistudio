@@ -1,5 +1,6 @@
 
-import { GoogleGenAI, Chat, File as GeminiFile, Part } from "@google/genai";
+
+import { GoogleGenAI, Chat, File as GeminiFile, Part, GenerateContentResponse } from "@google/genai";
 
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 60000;
@@ -48,14 +49,14 @@ export class GeminiService {
         file?: GeminiFile;
         onRetry: (details: { attempt: number; maxRetries: number; error: Error }) => void;
     }
-  ): AsyncGenerator<string> {
+  ): AsyncGenerator<{type: 'chunk', data: string} | {type: 'metadata', data: GenerateContentResponse}> {
     const { file, onRetry } = options;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
             const stream = this.sendMessageAndCheckResponse(prompt, model, temperature, file);
-            for await (const chunk of stream) {
-                yield chunk;
+            for await (const result of stream) {
+                yield result;
             }
             return; 
         } catch (error: any) {
@@ -78,7 +79,7 @@ export class GeminiService {
     model: string,
     temperature: number,
     file?: GeminiFile
-  ): AsyncGenerator<string> {
+  ): AsyncGenerator<{type: 'chunk', data: string} | {type: 'metadata', data: GenerateContentResponse}> {
     if (!this.chat) {
       this.chat = this.ai.chats.create({
         model: model,
@@ -86,7 +87,7 @@ export class GeminiService {
       });
     }
 
-    const parts: (string | Part)[] = [prompt];
+    const parts: Part[] = [{ text: prompt }];
     if (file && file.uri && file.mimeType) {
       parts.push({
         fileData: {
@@ -100,11 +101,13 @@ export class GeminiService {
     
     let fullResponseText = "";
     let hasYielded = false;
+    let lastChunk: GenerateContentResponse | null = null;
 
     for await (const chunk of stream) {
+        lastChunk = chunk;
         const text = chunk.text;
         if (text) {
-          yield text;
+          yield { type: 'chunk', data: text };
           fullResponseText += text;
           hasYielded = true;
         }
@@ -115,6 +118,10 @@ export class GeminiService {
     }
     if (fullResponseText.includes("<ctrl94>")) {
         throw new Error("Invalid response: Detected thought process leakage.");
+    }
+    
+    if (lastChunk) {
+        yield { type: 'metadata', data: lastChunk };
     }
   }
 }
