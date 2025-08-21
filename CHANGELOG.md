@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2024-08-01
+
+### Added
+-   **Vite Build System**: Integrated Vite for a fast development experience and optimized production builds.
+-   Added `dev`, `build`, and `preview` scripts to `package.json` for standardized project management.
+
+### Changed
+-   **Project Restructure**: Moved all source files into a `src` directory to follow modern web development conventions.
+-   Updated `README.md` with new setup and development instructions.
+
+### Removed
+-   Removed obsolete components (`ApiKeyModal`, `ApiKeyInput`) and services (`geminiFileService`) that are no longer in use.
+
 ## [2.1.0] - 2024-07-31
 
 ### Added

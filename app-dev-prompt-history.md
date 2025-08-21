@@ -20,7 +20,7 @@
 
 * Can you use some icons library. And also use packages file, so i can build the project outside of this environment
 
-
+* Can you add commands in package.json so that app can be compiled and run and a dev running command. Is vite needed here?
 
 
 
