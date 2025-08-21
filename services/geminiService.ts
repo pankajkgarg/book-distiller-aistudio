@@ -1,108 +1,74 @@
 
-const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
-
-interface ContentPart {
-  text?: string;
-  file_data?: {
-    mime_type: string;
-    file_uri: string;
-  };
-}
-
-interface Content {
-  role: 'user' | 'model';
-  parts: ContentPart[];
-}
+import { GoogleGenAI, Chat, File as GeminiFile, Part, FileDataPart } from "@google/genai";
 
 export class GeminiService {
-  private apiKey: string;
-  private history: Content[] = [];
+  private ai: GoogleGenAI;
+  private chat: Chat | null = null;
 
-  constructor(apiKey: string) {
-    if (!apiKey) {
-      throw new Error("API key is required for GeminiService.");
+  constructor() {
+    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+  }
+
+  public async uploadAndProcessFile(
+    file: globalThis.File, 
+    onStateChange: (state: 'UPLOADING' | 'PROCESSING' | 'ACTIVE' | 'FAILED') => void
+  ): Promise<GeminiFile> {
+    onStateChange('UPLOADING');
+    const uploadedFile = await this.ai.files.upload({
+      file: file,
+      config: {
+        displayName: file.name,
+      },
+    });
+    
+    onStateChange('PROCESSING');
+    let getFile = await this.ai.files.get({ name: uploadedFile.name });
+    while (getFile.state === 'PROCESSING') {
+      // Wait for 3 seconds before polling again
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      getFile = await this.ai.files.get({ name: uploadedFile.name });
     }
-    this.apiKey = apiKey;
+
+    if (getFile.state === 'FAILED') {
+      onStateChange('FAILED');
+      throw new Error('File processing failed.');
+    }
+    
+    onStateChange('ACTIVE');
+    return getFile;
   }
 
   public async *generateResponseStream(
     prompt: string,
     model: string,
     temperature: number,
-    fileUri?: string
+    file?: GeminiFile
   ): AsyncGenerator<string> {
-    const userParts: ContentPart[] = [{ text: prompt }];
-    if (fileUri) {
-      // fileUri is only for the first message of a conversation
-      this.history = []; 
-      userParts.unshift({
-        file_data: {
-          mime_type: 'application/pdf',
-          file_uri: fileUri,
-        },
+    
+    if (!this.chat) {
+      this.chat = this.ai.chats.create({
+        model: model,
+        config: { temperature: temperature }
       });
     }
 
-    this.history.push({ role: 'user', parts: userParts });
-
-    const url = `${API_BASE}/${model}:streamGenerateContent?alt=sse`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': this.apiKey,
-      },
-      body: JSON.stringify({
-        contents: this.history,
-        generationConfig: {
-          temperature: temperature,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API request failed with status ${response.status}: ${errorText}`);
-    }
-
-    if (!response.body) {
-        throw new Error("Response body is null");
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let accumulatedResponse = '';
-
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-            break;
+    const parts: (Part | FileDataPart)[] = [{ text: prompt }];
+    if (file && file.uri && file.mimeType) {
+      parts.push({
+        fileData: {
+          mimeType: file.mimeType,
+          fileUri: file.uri,
         }
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-            if (line.startsWith('data: ')) {
-                const jsonString = line.substring(6);
-                try {
-                    const parsed = JSON.parse(jsonString);
-                    const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (text) {
-                        accumulatedResponse += text;
-                        yield text;
-                    }
-                } catch (e) {
-                    console.error("Error parsing SSE data chunk:", e, "Data:", jsonString);
-                }
-            }
-        }
+      });
     }
     
-    // Add the full model response to history for the next turn
-    this.history.push({ role: 'model', parts: [{ text: accumulatedResponse }]});
+    const stream = await this.chat.sendMessageStream({ message: parts });
+
+    for await (const chunk of stream) {
+        const text = chunk.text;
+        if (text) {
+          yield text;
+        }
+    }
   }
 }

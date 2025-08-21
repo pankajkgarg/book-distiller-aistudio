@@ -13,7 +13,6 @@ interface HeaderProps {
   onToggleTrace: () => void;
   isTraceVisible: boolean;
   isActionable: boolean;
-  onChangeApiKey: () => void;
 }
 
 const getStatusColor = (status: Status) => {
@@ -37,7 +36,6 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTrace,
   isTraceVisible,
   isActionable,
-  onChangeApiKey
 }) => {
   const isRunning = status === Status.Running;
   const isPaused = status === Status.Paused;
@@ -102,14 +100,6 @@ export const Header: React.FC<HeaderProps> = ({
           <div className={`transform transition-transform ${isTraceVisible ? 'rotate-180' : ''}`}>
              <ChevronRightIcon />
           </div>
-        </button>
-        <button
-            onClick={onChangeApiKey}
-            className="p-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors"
-            title="Change API Key"
-            aria-label="Change API Key"
-        >
-            <SettingsIcon />
         </button>
       </div>
     </header>

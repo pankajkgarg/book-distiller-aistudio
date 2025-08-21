@@ -1,10 +1,15 @@
-
 # Changelog
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [2.0.1] - 2024-07-30
+
+### Changed
+
+-   **Refactor: Adopted @google/genai SDK**: Replaced all manual `fetch` calls to the Gemini REST API with the official `@google/genai` JavaScript SDK. This includes file uploads, polling, and content generation, resulting in a more robust, maintainable, and type-safe codebase.
 
 ## [2.0.0] - 2024-07-29
 

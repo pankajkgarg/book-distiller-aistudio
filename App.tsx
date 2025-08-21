@@ -6,14 +6,11 @@ import { Header } from './components/Header';
 import { SourcePanel } from './components/SourcePanel';
 import { LiveDocument } from './components/LiveDocument';
 import { TraceDrawer } from './components/TraceDrawer';
-import { ApiKeyModal } from './components/ApiKeyModal';
-import { ApiKeyInput } from './components/ApiKeyInput';
 import { useBookDistiller } from './hooks/useBookDistiller';
 import { Status } from './types';
 
 export default function App(): React.ReactNode {
   const [isTraceVisible, setIsTraceVisible] = useState(false);
-  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const {
     status,
     setStatus,
@@ -27,8 +24,6 @@ export default function App(): React.ReactNode {
     startDistillation,
     pauseDistillation,
     stopDistillation,
-    apiKey,
-    setAndStoreApiKey,
     model,
     setAndStoreModel,
     temperature,
@@ -55,18 +50,8 @@ export default function App(): React.ReactNode {
     navigator.clipboard.writeText(fullDocumentContent);
   };
 
-  const handleApiKeySubmit = (key: string) => {
-    setAndStoreApiKey(key);
-    setIsApiKeyModalOpen(false);
-    if (status !== Status.Idle && status !== Status.Stopped && status !== Status.Finished && status !== Status.Error) {
-      stopDistillation();
-    }
-  };
-
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-gray-200 font-sans">
-      {isApiKeyModalOpen && <ApiKeyModal onApiKeySubmit={handleApiKeySubmit} onClose={() => setIsApiKeyModalOpen(false)} />}
-
       <Header
         status={status}
         onStart={startDistillation}
@@ -76,14 +61,10 @@ export default function App(): React.ReactNode {
         onCopy={handleCopy}
         onToggleTrace={() => setIsTraceVisible(!isTraceVisible)}
         isTraceVisible={isTraceVisible}
-        isActionable={!!apiKey && uploadedFile !== null}
-        onChangeApiKey={() => setIsApiKeyModalOpen(true)}
+        isActionable={uploadedFile !== null}
       />
       <main className="flex flex-1 overflow-hidden">
         <div className="w-1/3 border-r border-gray-700 flex flex-col p-4 overflow-y-auto">
-          {!apiKey ? (
-            <ApiKeyInput onApiKeySubmit={handleApiKeySubmit} />
-          ) : (
             <SourcePanel
               prompt={distillationPrompt}
               onPromptChange={setDistillationPrompt}
@@ -99,7 +80,6 @@ export default function App(): React.ReactNode {
               temperature={temperature}
               onTemperatureChange={setAndStoreTemperature}
             />
-          )}
         </div>
         <div className="w-2/3 flex-1 flex relative">
           <LiveDocument responses={distillationLog} status={status} error={error} />

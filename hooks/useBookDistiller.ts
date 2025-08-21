@@ -3,12 +3,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Status, TraceLog } from '../types';
 import { DEFAULT_PROMPT, END_OF_BOOK_MARKER, NEXT_PROMPT } from '../constants';
 import { GeminiService } from '../services/geminiService';
-import { GeminiFileService } from '../services/geminiFileService';
 
 const PROMPT_HISTORY_LIMIT = 20;
 
 export const useBookDistiller = () => {
-  const [apiKey, setApiKey] = useState<string | null>(() => localStorage.getItem('gemini_api_key'));
   const [status, setStatus] = useState<Status>(Status.Idle);
   const [distillationPrompt, setDistillationPromptState] = useState<string>(
     () => localStorage.getItem('distillation_prompt') || DEFAULT_PROMPT
@@ -28,16 +26,10 @@ export const useBookDistiller = () => {
   const [error, setError] = useState<string | null>(null);
 
   const geminiServiceRef = useRef<GeminiService | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const statusRef = useRef<Status>(status);
   statusRef.current = status;
   const currentPromptRef = useRef<string>(distillationPrompt);
   currentPromptRef.current = distillationPrompt;
-
-  const setAndStoreApiKey = (key: string) => {
-    localStorage.setItem('gemini_api_key', key);
-    setApiKey(key);
-  };
 
   const setAndStoreDistillationPrompt = (prompt: string) => {
     localStorage.setItem('distillation_prompt', prompt);
@@ -64,9 +56,6 @@ export const useBookDistiller = () => {
   }, []);
 
   const resetState = useCallback(() => {
-    if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-    }
     setDistillationLog([]);
     setTraceLogs([]);
     setError(null);
@@ -75,8 +64,8 @@ export const useBookDistiller = () => {
 
 
   const startDistillation = async () => {
-    if (!uploadedFile || !apiKey) {
-      setError("API Key and a file are required to start.");
+    if (!uploadedFile) {
+      setError("A file is required to start.");
       setStatus(Status.Error);
       return;
     }
@@ -93,24 +82,30 @@ export const useBookDistiller = () => {
     resetState();
     
     try {
-        setStatus(Status.Uploading);
+        geminiServiceRef.current = new GeminiService();
+        const service = geminiServiceRef.current;
+
         addTraceLog('system', `Uploading ${uploadedFile.name}...`);
-        const fileService = new GeminiFileService(apiKey);
-        const fileName = await fileService.uploadFile(uploadedFile);
+
+        const processedFile = await service.uploadAndProcessFile(
+            uploadedFile,
+            (state) => {
+                if (state === 'UPLOADING') setStatus(Status.Uploading);
+                if (state === 'PROCESSING') {
+                    setStatus(Status.ProcessingFile);
+                    addTraceLog('system', `File uploaded. Waiting for processing to complete.`);
+                }
+                if (state === 'ACTIVE') {
+                    addTraceLog('system', `File ready.`);
+                }
+            }
+        );
         
-        setStatus(Status.ProcessingFile);
-        addTraceLog('system', `File uploaded. Waiting for processing to complete. File name: ${fileName}`);
-        const fileData = await fileService.pollFileState(fileName);
-        const fileUri = fileData.uri;
-        addTraceLog('system', `File ready. URI: ${fileUri}`);
-
-        geminiServiceRef.current = new GeminiService(apiKey);
         setStatus(Status.Running);
-
         addTraceLog('user', `[DISTILLATION PROMPT]\n${distillationPrompt}`);
         
         // Initial Turn
-        const stream = geminiServiceRef.current.generateResponseStream(distillationPrompt, model, temperature, fileUri);
+        const stream = service.generateResponseStream(distillationPrompt, model, temperature, processedFile);
         
         let currentResponse = '';
         setDistillationLog(['']);
@@ -127,7 +122,7 @@ export const useBookDistiller = () => {
         if (statusRef.current === Status.Running) {
           addTraceLog('assistant', currentResponse);
           if (!currentResponse.includes(END_OF_BOOK_MARKER)) {
-              await continueDistillation(geminiServiceRef.current);
+              await continueDistillation(service);
           } else {
              handleEndOfBook(currentResponse);
           }
@@ -218,8 +213,6 @@ export const useBookDistiller = () => {
     startDistillation,
     pauseDistillation,
     stopDistillation,
-    apiKey,
-    setAndStoreApiKey,
     model,
     setAndStoreModel,
     temperature,
