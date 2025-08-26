@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Status, TraceLog } from '../types';
 import { DEFAULT_PROMPT, END_OF_BOOK_MARKER, NEXT_PROMPT } from '../constants';
 import { GeminiService } from '../services/geminiService';
+import { GenerateContentResponse } from '@google/genai';
 
 const PROMPT_HISTORY_LIMIT = 20;
 
@@ -64,6 +65,19 @@ export const useBookDistiller = () => {
     };
     setTraceLogs(prev => [...prev, newLog]);
   }, []);
+  
+  const addMetadataToTrace = useCallback((metadata: GenerateContentResponse) => {
+    const { candidates, ...meta } = metadata as any;
+    const cleanedMetadata = {
+        ...meta,
+        candidates: candidates?.map((c: any) => {
+            const { content, ...rest } = c;
+            return rest;
+        })
+    };
+    const metadataString = JSON.stringify(cleanedMetadata, null, 2);
+    addTraceLog('system', `[METADATA]\n${metadataString}`);
+  }, [addTraceLog]);
 
   const clearCountdown = useCallback(() => {
     if (countdownIntervalRef.current) {
@@ -86,7 +100,8 @@ export const useBookDistiller = () => {
     const errorMessage = `Attempt ${attempt}/${maxRetries} failed: ${error.message}. Retrying in 60s.`;
     addTraceLog('system', errorMessage);
     
-    setDistillationLog(prev => prev.slice(0, -1));
+    // Do not remove the placeholder log entry, it will be used for the retry
+    // setDistillationLog(prev => prev.slice(0, -1));
 
     setRetryInfo({ attempt, maxRetries, countdown: 60, error: error.message });
     
@@ -151,48 +166,32 @@ export const useBookDistiller = () => {
         addTraceLog('user', `[DISTILLATION PROMPT]\n${distillationPrompt}`);
         
         setDistillationLog(['']);
-        const stream = service.generateResponseStream(distillationPrompt, model, temperature, {
+        
+        const { text, metadata } = await service.generateResponse(distillationPrompt, model, temperature, {
             file: processedFile,
             onRetry: handleRetry,
         });
         
-        let currentResponse = '';
-        for await (const result of stream) {
-            if (result.type === 'chunk') {
-                if (statusRef.current === Status.WaitingToRetry) {
-                    setStatus(Status.Running);
-                    setRetryInfo(null);
-                    clearCountdown();
-                    currentResponse = ''; 
-                    setDistillationLog(prev => [...prev, '']);
-                }
-                if (statusRef.current !== Status.Running) break; 
-                currentResponse += result.data;
-                setDistillationLog(prev => {
-                    const newLog = [...prev];
-                    newLog[newLog.length - 1] = currentResponse;
-                    return newLog;
-                });
-            } else if (result.type === 'metadata') {
-                const { candidates, ...metadata } = result.data as any;
-                const cleanedMetadata = {
-                    ...metadata,
-                    candidates: candidates?.map((c: any) => {
-                        const { content, ...rest } = c;
-                        return rest;
-                    })
-                };
-                const metadataString = JSON.stringify(cleanedMetadata, null, 2);
-                addTraceLog('system', `[METADATA]\n${metadataString}`);
-            }
+        if (statusRef.current === Status.WaitingToRetry) {
+            setStatus(Status.Running);
+            setRetryInfo(null);
+            clearCountdown();
         }
+        if (statusRef.current !== Status.Running) return; 
+
+        setDistillationLog(prev => {
+            const newLog = [...prev];
+            newLog[newLog.length - 1] = text;
+            return newLog;
+        });
+        addMetadataToTrace(metadata);
         
         if (statusRef.current === Status.Running) {
-          addTraceLog('assistant', currentResponse);
-          if (!currentResponse.includes(END_OF_BOOK_MARKER)) {
+          addTraceLog('assistant', text);
+          if (!text.includes(END_OF_BOOK_MARKER)) {
               await continueDistillation(service);
           } else {
-             handleEndOfBook(currentResponse);
+             handleEndOfBook(text);
           }
         }
 
@@ -215,47 +214,28 @@ export const useBookDistiller = () => {
             addTraceLog('user', NEXT_PROMPT);
             setDistillationLog(prev => [...prev, '']);
 
-            const stream = service.generateResponseStream(NEXT_PROMPT, model, temperature, {
+            const { text, metadata } = await service.generateResponse(NEXT_PROMPT, model, temperature, {
                 onRetry: handleRetry
             });
             
-            let currentResponse = '';
-
-            for await (const result of stream) {
-                if (result.type === 'chunk') {
-                    if (statusRef.current === Status.WaitingToRetry) {
-                        setStatus(Status.Running);
-                        setRetryInfo(null);
-                        clearCountdown();
-                        currentResponse = '';
-                        setDistillationLog(prev => [...prev, '']);
-                    }
-                    if (statusRef.current !== Status.Running) break;
-                    currentResponse += result.data;
-                    setDistillationLog(prev => {
-                        const newLog = [...prev];
-                        newLog[newLog.length - 1] = currentResponse;
-                        return newLog;
-                    });
-                } else if (result.type === 'metadata') {
-                    const { candidates, ...metadata } = result.data as any;
-                    const cleanedMetadata = {
-                        ...metadata,
-                        candidates: candidates?.map((c: any) => {
-                            const { content, ...rest } = c;
-                            return rest;
-                        })
-                    };
-                    const metadataString = JSON.stringify(cleanedMetadata, null, 2);
-                    addTraceLog('system', `[METADATA]\n${metadataString}`);
-                }
+            if (statusRef.current === Status.WaitingToRetry) {
+                setStatus(Status.Running);
+                setRetryInfo(null);
+                clearCountdown();
             }
-            
             if (statusRef.current !== Status.Running) break;
-            addTraceLog('assistant', currentResponse);
 
-            if (currentResponse.includes(END_OF_BOOK_MARKER)) {
-                handleEndOfBook(currentResponse);
+            setDistillationLog(prev => {
+                const newLog = [...prev];
+                newLog[newLog.length - 1] = text;
+                return newLog;
+            });
+            addMetadataToTrace(metadata);
+            
+            addTraceLog('assistant', text);
+
+            if (text.includes(END_OF_BOOK_MARKER)) {
+                handleEndOfBook(text);
                 break;
             }
 

@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2024-08-04
+
+### Changed
+-   **Removed Streaming**: Switched from a streaming API response to a non-streaming (unary) response for content generation. The UI now waits for the full response from the AI before displaying it, which simplifies the data flow and error handling. The loading state for each response is preserved.
+
 ## [2.4.0] - 2024-08-03
 
 ### Added
