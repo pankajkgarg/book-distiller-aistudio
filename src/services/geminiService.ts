@@ -1,7 +1,6 @@
 import { GoogleGenAI, Chat, File as GeminiFile, Part, GenerateContentResponse } from "@google/genai";
 
 const MAX_RETRIES = 5;
-const RETRY_DELAY_MS = 60000;
 
 export class GeminiService {
   private ai: GoogleGenAI;
@@ -48,7 +47,7 @@ export class GeminiService {
     temperature: number,
     options: {
         file?: GeminiFile;
-        onRetry: (details: { attempt: number; maxRetries: number; error: Error }) => void;
+        onRetry: (details: { attempt: number; maxRetries: number; error: Error; delay: number }) => void;
     }
   ): Promise<{ text: string; metadata: GenerateContentResponse }> {
     const { file, onRetry } = options;
@@ -63,9 +62,8 @@ export class GeminiService {
             }
 
             const parts: Part[] = [{ text: prompt }];
-            // Only send the file on the very first message of the chat
-            // FIX: Removed check for `this.chat.history.length` as `history` is a private property.
-            // The calling code in `useBookDistiller` ensures the file is only passed on the first call.
+            // The calling code in `useBookDistiller` ensures the file is only passed on the first call
+            // or on a manual retry of the first call.
             if (file) {
               parts.push({
                 fileData: {
@@ -90,11 +88,13 @@ export class GeminiService {
 
         } catch (error: any) {
             if (attempt < MAX_RETRIES) {
-                onRetry({ attempt, maxRetries: MAX_RETRIES, error });
-                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                // Exponential backoff with jitter: 2^attempt * 5s, capped at 60s
+                const delay = Math.min(60000, (2 ** (attempt - 1)) * 5000) + Math.floor(Math.random() * 1000);
+                onRetry({ attempt, maxRetries: MAX_RETRIES, error, delay });
+                await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             } else {
-                const finalError = new Error(`Failed after ${attempt > 1 ? `${attempt} attempts` : 'the first attempt'}. Last error: ${error.message}`);
+                const finalError = new Error(`Failed after ${MAX_RETRIES} attempts. Last error: ${error.message}`);
                 throw finalError;
             }
         }

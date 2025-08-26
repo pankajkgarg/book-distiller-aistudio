@@ -1,4 +1,5 @@
-
+** Oldest to newest**
+** Newest prompts are at the bottom**
 
 * It should be possible to change gemini key later as well
 
@@ -32,7 +33,7 @@
 
 * The app is awesome. But I need two changes * Option to use system/light/dark theme * Render markdown content nicely. Currently text seems crammed up and just looks ugly after rendering
 
-
+* After 4-5 failed retries, the app shows "generating" but nothing happens. Instead it should retry with exponential backoff and provide a button to manually fire off the request
 
 
 

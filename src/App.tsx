@@ -34,6 +34,7 @@ export default function App(): React.ReactNode {
     retryInfo,
     apiKey,
     setAndStoreApiKey,
+    manualRetry,
   } = useBookDistiller();
 
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(!apiKey);
@@ -104,7 +105,7 @@ export default function App(): React.ReactNode {
             />
         </div>
         <div className="w-2/3 flex-1 flex relative">
-          <LiveDocument responses={distillationLog} status={status} error={error} retryInfo={retryInfo} />
+          <LiveDocument responses={distillationLog} status={status} error={error} retryInfo={retryInfo} onManualRetry={manualRetry} />
           <TraceDrawer logs={traceLogs} isVisible={isTraceVisible} onClose={() => setIsTraceVisible(false)} />
         </div>
       </main>

@@ -8,9 +8,10 @@ interface LiveDocumentProps {
   status: Status;
   error: string | null;
   retryInfo: { countdown: number; attempt: number; maxRetries: number; error: string } | null;
+  onManualRetry: () => void;
 }
 
-export const LiveDocument: React.FC<LiveDocumentProps> = ({ responses, status, error, retryInfo }) => {
+export const LiveDocument: React.FC<LiveDocumentProps> = ({ responses, status, error, retryInfo, onManualRetry }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -22,9 +23,15 @@ export const LiveDocument: React.FC<LiveDocumentProps> = ({ responses, status, e
   const renderContent = () => {
     if (status === Status.Error) {
       return (
-        <div className="text-center text-red-500 dark:text-red-400">
+        <div className="text-center text-red-500 dark:text-red-400 bg-red-100 dark:bg-red-900/50 p-4 rounded-md border border-red-300 dark:border-red-700">
           <h3 className="text-xl font-bold mb-2">An Error Occurred</h3>
-          <p className="text-sm bg-red-100 dark:bg-red-900/50 p-3 rounded-md">{error}</p>
+          <p className="text-sm mb-4">{error}</p>
+          <button
+            onClick={onManualRetry}
+            className="px-4 py-2 bg-red-600 text-white rounded-md flex items-center justify-center space-x-2 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors mx-auto"
+          >
+            <span>Retry</span>
+          </button>
         </div>
       );
     }

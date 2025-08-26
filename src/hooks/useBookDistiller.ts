@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { Status, TraceLog } from '../types';
 import { DEFAULT_PROMPT, END_OF_BOOK_MARKER, NEXT_PROMPT } from '../constants';
 import { GeminiService } from '../services/geminiService';
-import { GenerateContentResponse } from '@google/genai';
+import { GenerateContentResponse, File as GeminiFile } from '@google/genai';
 
 const PROMPT_HISTORY_LIMIT = 20;
 
@@ -26,6 +26,7 @@ export const useBookDistiller = () => {
     () => parseFloat(localStorage.getItem('gemini_temperature') || '0.7')
   );
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [processedFile, setProcessedFile] = useState<GeminiFile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryInfo, setRetryInfo] = useState<{ attempt: number; maxRetries: number; countdown: number; error: string } | null>(null);
 
@@ -91,19 +92,18 @@ export const useBookDistiller = () => {
     setTraceLogs([]);
     setError(null);
     geminiServiceRef.current = null;
+    setProcessedFile(null);
     clearCountdown();
     setRetryInfo(null);
   }, [clearCountdown]);
   
-  const handleRetry = useCallback(({ attempt, maxRetries, error }: { attempt: number; maxRetries: number; error: Error }) => {
+  const handleRetry = useCallback(({ attempt, maxRetries, error, delay }: { attempt: number; maxRetries: number; error: Error; delay: number }) => {
     setStatus(Status.WaitingToRetry);
-    const errorMessage = `Attempt ${attempt}/${maxRetries} failed: ${error.message}. Retrying in 60s.`;
+    const delayInSeconds = Math.ceil(delay / 1000);
+    const errorMessage = `Attempt ${attempt}/${maxRetries} failed: ${error.message}. Retrying in ${delayInSeconds}s.`;
     addTraceLog('system', errorMessage);
     
-    // Do not remove the placeholder log entry, it will be used for the retry
-    // setDistillationLog(prev => prev.slice(0, -1));
-
-    setRetryInfo({ attempt, maxRetries, countdown: 60, error: error.message });
+    setRetryInfo({ attempt, maxRetries, countdown: delayInSeconds, error: error.message });
     
     clearCountdown();
     countdownIntervalRef.current = window.setInterval(() => {
@@ -148,7 +148,7 @@ export const useBookDistiller = () => {
 
         addTraceLog('system', `Uploading ${uploadedFile.name}...`);
 
-        const processedFile = await service.uploadAndProcessFile(
+        const file = await service.uploadAndProcessFile(
             uploadedFile,
             (state) => {
                 if (state === 'UPLOADING') setStatus(Status.Uploading);
@@ -161,6 +161,7 @@ export const useBookDistiller = () => {
                 }
             }
         );
+        setProcessedFile(file);
         
         setStatus(Status.Running);
         addTraceLog('user', `[DISTILLATION PROMPT]\n${distillationPrompt}`);
@@ -168,7 +169,7 @@ export const useBookDistiller = () => {
         setDistillationLog(['']);
         
         const { text, metadata } = await service.generateResponse(distillationPrompt, model, temperature, {
-            file: processedFile,
+            file: file,
             onRetry: handleRetry,
         });
         
@@ -198,8 +199,8 @@ export const useBookDistiller = () => {
     } catch (e: any) {
         const errorMessage = `Distillation failed: ${e.message}`;
         setError(errorMessage);
-        setStatus(Status.Paused);
-        addTraceLog('system', `${errorMessage}. Process paused.`);
+        setStatus(Status.Error);
+        addTraceLog('system', `${errorMessage}. Process stopped. Manual retry is available.`);
         clearCountdown();
         setRetryInfo(null);
     }
@@ -242,12 +243,62 @@ export const useBookDistiller = () => {
         } catch (e: any) {
             const errorMessage = `Distillation failed during conversation turn: ${e.message}`;
             setError(errorMessage);
-            setStatus(Status.Paused);
-            addTraceLog('system', `${errorMessage}. Process paused.`);
+            setStatus(Status.Error);
+            addTraceLog('system', `${errorMessage}. Process stopped. Manual retry is available.`);
             clearCountdown();
             setRetryInfo(null);
             break;
         }
+    }
+  };
+
+  const manualRetry = async () => {
+    if (!geminiServiceRef.current) {
+      console.error("Cannot retry: Gemini service not initialized.");
+      // Attempt a full restart if service is missing
+      await startDistillation();
+      return;
+    }
+    const service = geminiServiceRef.current;
+    
+    setError(null);
+    setStatus(Status.Running);
+    addTraceLog('system', "Manual retry initiated...");
+
+    const isInitialCall = distillationLog.length === 1;
+
+    try {
+        if (isInitialCall) {
+            if (!processedFile) {
+                throw new Error("Processed file is missing for retry.");
+            }
+            addTraceLog('user', `[MANUAL RETRY - DISTILLATION PROMPT]\n${distillationPrompt}`);
+            
+            const { text, metadata } = await service.generateResponse(distillationPrompt, model, temperature, {
+                file: processedFile,
+                onRetry: handleRetry,
+            });
+
+            if (statusRef.current !== Status.Running) return;
+
+            setDistillationLog([text]);
+            addMetadataToTrace(metadata);
+            addTraceLog('assistant', text);
+
+            if (!text.includes(END_OF_BOOK_MARKER)) {
+                await continueDistillation(service);
+            } else {
+                handleEndOfBook(text);
+            }
+        } else {
+            // A subsequent call failed, so we can just continue the loop
+            await continueDistillation(service);
+        }
+    } catch (e: any) {
+        const errorMessage = `Manual retry failed: ${e.message}`;
+        setError(errorMessage);
+        setStatus(Status.Error);
+        addTraceLog('system', `${errorMessage}. Process stopped. Manual retry is available.`);
     }
   };
   
@@ -299,5 +350,6 @@ export const useBookDistiller = () => {
     setAndStoreTemperature,
     error,
     retryInfo,
+    manualRetry,
   };
 };
