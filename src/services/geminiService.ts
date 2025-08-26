@@ -1,5 +1,3 @@
-
-
 import { GoogleGenAI, Chat, File as GeminiFile, Part, GenerateContentResponse } from "@google/genai";
 
 const MAX_RETRIES = 5;
@@ -9,8 +7,11 @@ export class GeminiService {
   private ai: GoogleGenAI;
   private chat: Chat | null = null;
 
-  constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+  constructor(apiKey: string) {
+    if (!apiKey) {
+      throw new Error("API key is required for GeminiService.");
+    }
+    this.ai = new GoogleGenAI({ apiKey: apiKey });
   }
 
   public async uploadAndProcessFile(

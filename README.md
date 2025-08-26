@@ -12,16 +12,17 @@ Book Distiller is an AI-powered web application designed to distill the essence 
 -   **Live Response View**: Watch the distillation unfold in real-time, with each response from the AI appearing as a distinct block.
 -   **Trace Log**: A transparent, behind-the-scenes look at the prompts sent to and responses received from the AI.
 -   **Export & Copy**: Export the final combined document as a Markdown or text file, or copy it directly to your clipboard.
--   **Secure API Key Usage**: The application is designed to use a pre-configured environment variable for the Gemini API key, ensuring it's not exposed in the client-side code.
+-   **Secure API Key Storage**: Your Gemini API key is stored locally and securely in your browser's storage and is never sent to any server other than Google's.
 
 ## Getting Started
 
-1.  **Get a Gemini API Key**: To use the application, you need a free API key from Google AI Studio. You can get one here: [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey). The key must be available as an environment variable (`process.env.API_KEY`) in your hosting environment.
+1.  **Get a Gemini API Key**: To use the application, you need a free API key from Google AI Studio. You can get one here: [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey).
 2.  **Install Dependencies**: In a terminal, run `npm install` to download the required packages.
 3.  **Run the Development Server**: Run `npm run dev`. This will start a local server, and you can access the app in your browser at the provided URL (usually `http://localhost:5173`).
-4.  **Upload a Book**: Click the "Upload Book (PDF)" button to select your source file.
-5.  **Customize Settings (Optional)**: Review and edit the distillation prompt, or expand the "Advanced Settings" to change the model and temperature.
-6.  **Start Distillation**: Click the "Start" button to begin the process.
+4.  **Enter Your API Key**: On first launch, you will be prompted to enter your Gemini API key. This is stored securely in your browser's local storage. You can change it later via the settings icon in the header.
+5.  **Upload a Book**: Click the "Upload Book (PDF)" button to select your source file.
+6.  **Customize Settings (Optional)**: Review and edit the distillation prompt, or expand the "Advanced Settings" to change the model and temperature.
+7.  **Start Distillation**: Click the "Start" button to begin the process.
 
 ## Development and Building
 

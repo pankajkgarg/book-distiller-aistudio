@@ -5,6 +5,7 @@ import { Header } from './components/Header';
 import { SourcePanel } from './components/SourcePanel';
 import { LiveDocument } from './components/LiveDocument';
 import { TraceDrawer } from './components/TraceDrawer';
+import { ApiKeyModal } from './components/ApiKeyModal';
 import { useBookDistiller } from './hooks/useBookDistiller';
 import { Status } from './types';
 
@@ -29,7 +30,16 @@ export default function App(): React.ReactNode {
     setAndStoreTemperature,
     error,
     retryInfo,
+    apiKey,
+    setAndStoreApiKey,
   } = useBookDistiller();
+
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(!apiKey);
+
+  const handleApiKeySubmit = (key: string) => {
+    setAndStoreApiKey(key);
+    setIsApiKeyModalOpen(false);
+  };
 
   const fullDocumentContent = distillationLog.join('\n\n');
 
@@ -52,6 +62,12 @@ export default function App(): React.ReactNode {
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-gray-200 font-sans">
+      {isApiKeyModalOpen && (
+        <ApiKeyModal
+          onApiKeySubmit={handleApiKeySubmit}
+          onClose={apiKey ? () => setIsApiKeyModalOpen(false) : undefined}
+        />
+      )}
       <Header
         status={status}
         onStart={startDistillation}
@@ -61,8 +77,9 @@ export default function App(): React.ReactNode {
         onCopy={handleCopy}
         onToggleTrace={() => setIsTraceVisible(!isTraceVisible)}
         isTraceVisible={isTraceVisible}
-        isActionable={uploadedFile !== null}
+        isActionable={uploadedFile !== null && !!apiKey}
         retryInfo={retryInfo}
+        onOpenSettings={() => setIsApiKeyModalOpen(true)}
       />
       <main className="flex flex-1 overflow-hidden">
         <div className="w-1/3 border-r border-gray-700 flex flex-col p-4 overflow-y-auto">

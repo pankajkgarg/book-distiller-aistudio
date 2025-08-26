@@ -13,6 +13,7 @@ interface HeaderProps {
   isTraceVisible: boolean;
   isActionable: boolean;
   retryInfo: { attempt: number; maxRetries: number } | null;
+  onOpenSettings: () => void;
 }
 
 const getStatusColor = (status: Status) => {
@@ -37,7 +38,8 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTrace,
   isTraceVisible,
   isActionable,
-  retryInfo
+  retryInfo,
+  onOpenSettings,
 }) => {
   const isRunning = status === Status.Running;
   const isPaused = status === Status.Paused;
@@ -101,6 +103,13 @@ export const Header: React.FC<HeaderProps> = ({
           <ClipboardIcon />
         </button>
         <div className="h-6 w-px bg-gray-600 mx-2"></div>
+        <button
+          onClick={onOpenSettings}
+          className="p-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors"
+          title="Settings"
+        >
+          <SettingsIcon />
+        </button>
         <button
           onClick={onToggleTrace}
           className={`px-3 py-2 rounded-md flex items-center space-x-2 transition-colors ${isTraceVisible ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'}`}

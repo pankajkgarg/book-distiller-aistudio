@@ -24,6 +24,11 @@
 
 * Show metadata information like prompt consumed, cache tokens, error code, error message etc (all this metadata returnied in gemini response) in trace
 
+* The code fails outside the aistudio env. It shows this error in trace "Distillation failed: process is not defined. Process paused." I don't see any api calls from the web app. What is wrong? App is also not providing any option to provide api key
+
+
+
+
 
 
 

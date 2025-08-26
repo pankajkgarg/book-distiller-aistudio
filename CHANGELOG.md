@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2024-08-03
+
+### Added
+-   **API Key Management UI**: Re-introduced a user interface for managing the Gemini API key.
+    -   On first use, a modal prompts the user to enter their API key.
+    -   The key is securely stored in the browser's local storage.
+    -   A new settings icon in the header allows the key to be updated later.
+
+### Fixed
+-   Resolved a critical runtime error (`process is not defined`) that prevented the app from functioning outside of specific hosting environments. The app no longer relies on a pre-configured `process.env.API_KEY` variable.
+
 ## [2.3.0] - 2024-08-02
 
 ### Added

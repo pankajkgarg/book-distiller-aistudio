@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Status, TraceLog } from '../types';
 import { DEFAULT_PROMPT, END_OF_BOOK_MARKER, NEXT_PROMPT } from '../constants';
@@ -9,6 +7,9 @@ const PROMPT_HISTORY_LIMIT = 20;
 
 export const useBookDistiller = () => {
   const [status, setStatus] = useState<Status>(Status.Idle);
+  const [apiKey, setApiKeyState] = useState<string | null>(
+    () => localStorage.getItem('gemini_api_key')
+  );
   const [distillationPrompt, setDistillationPromptState] = useState<string>(
     () => localStorage.getItem('distillation_prompt') || DEFAULT_PROMPT
   );
@@ -34,6 +35,11 @@ export const useBookDistiller = () => {
   const currentPromptRef = useRef<string>(distillationPrompt);
   currentPromptRef.current = distillationPrompt;
   const countdownIntervalRef = useRef<number | null>(null);
+
+  const setAndStoreApiKey = (key: string) => {
+    localStorage.setItem('gemini_api_key', key);
+    setApiKeyState(key);
+  };
 
   const setAndStoreDistillationPrompt = (prompt: string) => {
     localStorage.setItem('distillation_prompt', prompt);
@@ -99,6 +105,11 @@ export const useBookDistiller = () => {
 
 
   const startDistillation = async () => {
+    if (!apiKey) {
+      setError("A Gemini API key is required to start.");
+      setStatus(Status.Error);
+      return;
+    }
     if (!uploadedFile) {
       setError("A file is required to start.");
       setStatus(Status.Error);
@@ -117,7 +128,7 @@ export const useBookDistiller = () => {
     resetState();
     
     try {
-        geminiServiceRef.current = new GeminiService();
+        geminiServiceRef.current = new GeminiService(apiKey);
         const service = geminiServiceRef.current;
 
         addTraceLog('system', `Uploading ${uploadedFile.name}...`);
@@ -290,6 +301,8 @@ export const useBookDistiller = () => {
   return {
     status,
     setStatus,
+    apiKey,
+    setAndStoreApiKey,
     distillationPrompt,
     setDistillationPrompt: setAndStoreDistillationPrompt,
     promptHistory,
