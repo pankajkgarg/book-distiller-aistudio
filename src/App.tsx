@@ -7,10 +7,12 @@ import { LiveDocument } from './components/LiveDocument';
 import { TraceDrawer } from './components/TraceDrawer';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { useBookDistiller } from './hooks/useBookDistiller';
+import useTheme from './hooks/useTheme';
 import { Status } from './types';
 
 export default function App(): React.ReactNode {
   const [isTraceVisible, setIsTraceVisible] = useState(false);
+  const { theme, setTheme } = useTheme();
   const {
     status,
     setStatus,
@@ -61,7 +63,7 @@ export default function App(): React.ReactNode {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-gray-200 font-sans">
+    <div className="flex flex-col h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-200 font-sans">
       {isApiKeyModalOpen && (
         <ApiKeyModal
           onApiKeySubmit={handleApiKeySubmit}
@@ -80,9 +82,11 @@ export default function App(): React.ReactNode {
         isActionable={uploadedFile !== null && !!apiKey}
         retryInfo={retryInfo}
         onOpenSettings={() => setIsApiKeyModalOpen(true)}
+        theme={theme}
+        setTheme={setTheme}
       />
       <main className="flex flex-1 overflow-hidden">
-        <div className="w-1/3 border-r border-gray-700 flex flex-col p-4 overflow-y-auto">
+        <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 flex flex-col p-4 overflow-y-auto bg-gray-50 dark:bg-gray-900">
             <SourcePanel
               prompt={distillationPrompt}
               onPromptChange={setDistillationPrompt}

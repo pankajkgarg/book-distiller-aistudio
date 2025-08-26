@@ -12,7 +12,10 @@ import {
   FaKey,
   FaGear,
   FaClockRotateLeft,
-  FaSpinner
+  FaSpinner,
+  FaSun,
+  FaMoon,
+  FaDesktop,
 } from 'react-icons/fa6';
 
 export {
@@ -28,6 +31,9 @@ export {
   FaKey as KeyIcon,
   FaGear as SettingsIcon,
   FaClockRotateLeft as HistoryIcon,
+  FaSun as SunIcon,
+  FaMoon as MoonIcon,
+  FaDesktop as DesktopIcon,
 };
 
 // SpinnerIcon requires special handling to apply the animation class by default.

@@ -30,6 +30,8 @@
 
 * Currently it uses streaming api, i don't want that
 
+* The app is awesome. But I need two changes * Option to use system/light/dark theme * Render markdown content nicely. Currently text seems crammed up and just looks ugly after rendering
+
 
 
 

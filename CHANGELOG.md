@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2024-08-05
+
+### Added
+-   **Theme Switching**: Added a theme selector in the header to switch between Light, Dark, and System themes. The user's preference is saved in local storage.
+
+### Changed
+-   **Improved Markdown Rendering**: Reworked the styling for generated content to significantly improve readability and aesthetics using the Tailwind Typography plugin.
+-   **UI Theming**: The entire application UI is now theme-aware, with colors and styles that adapt to the selected Light or Dark mode.
+
 ## [2.5.0] - 2024-08-04
 
 ### Changed
